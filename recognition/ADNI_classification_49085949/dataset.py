@@ -1,10 +1,9 @@
 import os
 import torch
-from torch.utils.data import Dataset, DataLoader as TorchDataLoader, random_split, ConcatDataset
+from torch.utils.data import Dataset, DataLoader as TorchDataLoader
 from torchvision import transforms
 from PIL import Image
 import glob
-import random
 
 # ----------------------------
 # Custom Dataset with cache
@@ -23,6 +22,7 @@ class CachedImageDataset(Dataset):
             files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
             self.img_paths.extend(files)
             self.labels.extend([label] * len(files))
+
 
     def __len__(self):
         return len(self.img_paths)
@@ -43,31 +43,15 @@ class CachedImageDataset(Dataset):
         return img, label
 
 # ----------------------------
-# Subset wrapper with transform
-# ----------------------------
-class SubsetWithTransform(Dataset):
-    def __init__(self, subset, transform=None):
-        self.subset = subset
-        self.transform = transform
-    def __len__(self):
-        return len(self.subset)
-    def __getitem__(self, idx):
-        img, label = self.subset[idx]
-        if self.transform:
-            img = self.transform(img)
-        return img, label
-
-# ----------------------------
 # Optimized DataLoader
 # ----------------------------
 class DataLoader:
     """
-    Optimized AD/NC DataLoader with caching and data augmentation
+    AD/NC DataLoader with caching and data augmentation
     """
     def __init__(self, datapath=r"Data\AD_NC",
                  batch_size=32,
                  img_size=224,
-                 split_ratio=(0.7,0.15,0.15),
                  seed=42,
                  num_workers=0,
                  pin_memory=False,
@@ -75,14 +59,12 @@ class DataLoader:
         self.datapath = datapath
         self.batch_size = batch_size
         self.img_size = img_size
-        self.split_ratio = split_ratio
         self.seed = seed
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.cache_in_memory = cache_in_memory
 
         self.train_loader = None
-        self.val_loader = None
         self.test_loader = None
         self.mean = 0.0
         self.std = 1.0
@@ -94,31 +76,31 @@ class DataLoader:
     def load_data(self):
         classes = ['AD','NC']
         label_ids = list(range(len(classes)))
-        merged_datasets = []
 
-        # Load images
-        for c,label in zip(classes, label_ids):
-            folder_train = os.path.join(self.datapath, 'train', c)
-            folder_test = os.path.join(self.datapath, 'test', c)
-            dataset = CachedImageDataset([folder_train, folder_test],
-                                         [label, label],
-                                         transform=None,
-                                         cache_in_memory=self.cache_in_memory)
-            merged_datasets.append(dataset)
+        # ----------------------------
+        # Load training dataset
+        # ----------------------------
+        train_folders = [os.path.join(self.datapath, 'train', c) for c in classes]
+        self.train_dataset = CachedImageDataset(train_folders, label_ids, transform=None, cache_in_memory=self.cache_in_memory)
 
-        full_dataset = ConcatDataset(merged_datasets)
-        self.total_images = len(full_dataset)
+        # ----------------------------
+        # Load test dataset
+        # ----------------------------
+        test_folders = [os.path.join(self.datapath, 'test', c) for c in classes]
+        self.test_dataset = CachedImageDataset(test_folders, label_ids, transform=None, cache_in_memory=self.cache_in_memory)
+
+        self.total_images = len(self.train_dataset) + len(self.test_dataset)
         self.n_classes = len(classes)
 
         # ----------------------------
-        # Estimate mean/std with subset (fast)
+        # Estimate mean/std from training set
         # ----------------------------
         temp_transform = transforms.Compose([
             transforms.Resize((self.img_size, self.img_size)),
             transforms.ToTensor()
         ])
         loader_for_stats = TorchDataLoader(
-            SubsetWithTransform(full_dataset, temp_transform),
+            CachedImageDataset(train_folders, label_ids, transform=temp_transform, cache_in_memory=False),
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -139,7 +121,7 @@ class DataLoader:
         # ----------------------------
         # Transforms
         # ----------------------------
-        train_transform = transforms.Compose([
+        self.train_transform = transforms.Compose([
             transforms.Resize((self.img_size, self.img_size)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomVerticalFlip(p=0.5),
@@ -149,52 +131,31 @@ class DataLoader:
             transforms.ToTensor(),
             transforms.Normalize(mean=self.mean, std=self.std)
         ])
-        val_transform = transforms.Compose([
+        self.test_transform = transforms.Compose([
             transforms.Resize((self.img_size, self.img_size)),
             transforms.ToTensor(),
             transforms.Normalize(mean=self.mean, std=self.std)
         ])
 
         # ----------------------------
-        # Split dataset
+        # Wrap datasets with transforms
         # ----------------------------
-        total_len = len(full_dataset)
-        train_len = int(total_len*self.split_ratio[0])
-        val_len = int(total_len*self.split_ratio[1])
-        test_len = total_len - train_len - val_len
-        train_subset, val_subset, test_subset = random_split(
-            full_dataset, [train_len, val_len, test_len],
-            generator=torch.Generator().manual_seed(self.seed)
-        )
-
-        # ----------------------------
-        # Wrap with transform
-        # ----------------------------
-        train_data = SubsetWithTransform(train_subset, train_transform)
-        val_data = SubsetWithTransform(val_subset, val_transform)
-        test_data = SubsetWithTransform(test_subset, val_transform)
+        self.train_dataset.transform = self.train_transform
+        self.test_dataset.transform = self.test_transform
 
         # ----------------------------
         # DataLoaders
         # ----------------------------
         self.train_loader = TorchDataLoader(
-            train_data,
+            self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             persistent_workers=True if self.num_workers>0 else False
         )
-        self.val_loader = TorchDataLoader(
-            val_data,
-            batch_size=self.batch_size,
-            shuffle=False,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            persistent_workers=True if self.num_workers>0 else False
-        )
         self.test_loader = TorchDataLoader(
-            test_data,
+            self.test_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
@@ -203,7 +164,7 @@ class DataLoader:
         )
 
     def get_loaders(self):
-        return self.train_loader, self.val_loader, self.test_loader
+        return self.train_loader, self.test_loader
 
     def get_meta(self):
         return {
@@ -214,16 +175,3 @@ class DataLoader:
             'channels': 1,
             'n_classes': self.n_classes
         }
-
-    def transform_val_from_folder(self, folder_path):
-        files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg','.jpeg','.png'))]
-        if len(files)==0:
-            raise FileNotFoundError(f"No image in {folder_path}")
-        img_path = os.path.join(folder_path, random.choice(files))
-        img = Image.open(img_path).convert('L')
-        val_transform = transforms.Compose([
-            transforms.Resize((self.img_size, self.img_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=self.mean, std=self.std)
-        ])
-        return val_transform(img).unsqueeze(0)

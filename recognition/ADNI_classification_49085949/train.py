@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import math
 from tqdm import tqdm
 from sklearn.metrics import classification_report, confusion_matrix
 import matplotlib.pyplot as plt
@@ -33,12 +32,11 @@ def model_report(model, input_size=(1,224,224)):
         print("FLOPs calculation failed.", str(e))
 
 # ----------------------------
-# Training function
+# Training function with OneCycleLR
 # ----------------------------
-def train_amp(model, train_loader, val_loader, model_name='small-in22k',
-              device='cuda', epochs=100, base_lr=1e-3, min_lr=1e-5, weight_decay=0.05,
-              results_dir='results',
-              early_stopping=True, patience=15):
+def train_amp(model, train_loader, model_name='small-in22k',
+              device='cuda', epochs=100, base_lr=1e-3, weight_decay=0.05,
+              results_dir='results', early_stopping=True, patience=15):
 
     device = torch.device(device)
     use_cuda = (device.type == 'cuda') and torch.cuda.is_available()
@@ -50,19 +48,24 @@ def train_amp(model, train_loader, val_loader, model_name='small-in22k',
     os.makedirs(os.path.join(results_dir, 'plots'), exist_ok=True)
 
     # Loss, optimizer
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
     optimizer = optim.AdamW(model.parameters(), lr=base_lr, weight_decay=weight_decay)
 
-    # LR scheduler: linear decay from base_lr -> min_lr
-    def lr_lambda(epoch):
-        return 1.0 - epoch / epochs * (1 - min_lr / base_lr)
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+    # OneCycleLR
+    total_steps = epochs * len(train_loader)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=base_lr * 3,          # peak lr
+        total_steps=total_steps,
+        pct_start=0.2,               # 前20% steps升高 lr
+        anneal_strategy='cos',
+        div_factor=25,               # 初始 lr = max_lr/div_factor
+        final_div_factor=1e4         # 最终 lr = max_lr/final_div_factor
+    )
 
-    # Tracking
-    best_val_acc, best_epoch, no_improve_epochs = 0.0, 0, 0
-    history = {'train_loss': [], 'train_acc': [], 'val_loss': [], 'val_acc': []}
+    best_train_acc, best_epoch, no_improve_epochs = 0.0, 0, 0
+    history = {'train_loss': [], 'train_acc': []}
 
-    # Training loop
     for epoch in range(epochs):
         model.train()
         running_loss, correct, total = 0.0, 0, 0
@@ -87,6 +90,8 @@ def train_amp(model, train_loader, val_loader, model_name='small-in22k',
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
 
+            scheduler.step() 
+
             running_loss += loss.item() * imgs.size(0)
             preds = outputs.argmax(dim=1)
             correct += (preds == labels).sum().item()
@@ -102,68 +107,54 @@ def train_amp(model, train_loader, val_loader, model_name='small-in22k',
         history['train_loss'].append(train_loss)
         history['train_acc'].append(train_acc)
 
-        # Validation
-        model.eval()
-        val_loss, correct, total = 0.0, 0, 0
-        all_preds, all_labels = [], []
-        with torch.no_grad():
-            for imgs, labels in val_loader:
-                imgs, labels = imgs.to(device), labels.to(device)
-                with autocast_ctx():
-                    outputs = model(imgs)
-                    loss = criterion(outputs, labels)
-                val_loss += loss.item() * imgs.size(0)
-                preds = outputs.argmax(dim=1)
-                correct += (preds == labels).sum().item()
-                total += labels.size(0)
-                all_preds.extend(preds.cpu().numpy())
-                all_labels.extend(labels.cpu().numpy())
+        print(f"Epoch [{epoch+1}/{epochs}] - Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} | "
+              f"LR: {optimizer.param_groups[0]['lr']:.6f}")
 
-        val_loss /= total
-        val_acc = correct / total
-        history['val_loss'].append(val_loss)
-        history['val_acc'].append(val_acc)
-
-        scheduler.step()
-
-        print(f"Epoch [{epoch+1}/{epochs}] - Train Loss: {train_loss:.4f}, Acc: {train_acc:.4f} | "
-              f"Val Loss: {val_loss:.4f}, Acc: {val_acc:.4f} | LR: {optimizer.param_groups[0]['lr']:.6f}")
-
-        # Save best model
-        if val_acc > best_val_acc:
-            best_val_acc, best_epoch = val_acc, epoch+1
+        if train_acc > best_train_acc:
+            best_train_acc, best_epoch = train_acc, epoch+1
             best_model_state = model.state_dict()
             no_improve_epochs = 0
         else:
             no_improve_epochs += 1
 
-        if early_stopping and no_improve_epochs >= patience and best_val_acc > 0.8:
-            print(f"Early stopping at epoch {epoch+1}. Best Val Acc: {best_val_acc:.4f} (Epoch {best_epoch})")
+        if early_stopping and no_improve_epochs >= patience and best_train_acc > 0.8:
+            print(f"Early stopping at epoch {epoch+1}. Best Train Acc: {best_train_acc:.4f} (Epoch {best_epoch})")
             break
 
-    # Save final model
+    # Save best model
     best_path = os.path.join(results_dir, f'{model_name}_best.pth')
     torch.save({
         'epoch': best_epoch,
         'model_state_dict': best_model_state,
         'optimizer_state_dict': optimizer.state_dict(),
-        'val_acc': best_val_acc,
+        'train_acc': best_train_acc,
     }, best_path)
-    print(f"Best model saved at epoch {best_epoch} with Val Acc: {best_val_acc:.4f}")
+    print(f"Best model saved at epoch {best_epoch} with Train Acc: {best_train_acc:.4f}")
 
-    # Classification report & confusion matrix
+    # Training 集评估
+    model.eval()
+    all_preds, all_labels = [], []
+    with torch.no_grad():
+        for imgs, labels in train_loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            outputs = model(imgs)
+            preds = outputs.argmax(dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
     report_text = classification_report(all_labels, all_preds, digits=4, zero_division=0)
+    print("Classification report on training set:")
     print(report_text)
-    with open(os.path.join(results_dir, "classification_report.txt"), "w") as f:
+    with open(os.path.join(results_dir, "classification_report_train.txt"), "w") as f:
         f.write(report_text)
 
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    plt.title("Confusion Matrix")
+    plt.title("Confusion Matrix (Train)")
     plt.xlabel("Predicted")
     plt.ylabel("True")
-    plt.savefig(os.path.join(results_dir, "confusion_matrix/conf_matrix.png"))
+    plt.savefig(os.path.join(results_dir, "confusion_matrix/conf_matrix_train.png"))
     plt.close()
 
     return model, history, best_path
@@ -172,7 +163,7 @@ def train_amp(model, train_loader, val_loader, model_name='small-in22k',
 # Evaluate test set
 # ----------------------------
 def evaluate_on_test(model, test_loader, checkpoint_path, device, save_dir):
-    ckpt = torch.load(checkpoint_path, map_location=device,weights_only=True)
+    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=True)
     model.load_state_dict(ckpt['model_state_dict'])
     model.eval()
     all_preds, all_labels = [], []
@@ -194,7 +185,7 @@ def evaluate_on_test(model, test_loader, checkpoint_path, device, save_dir):
     print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
 
     report_text = classification_report(all_labels, all_preds, target_names=['CN', 'AD'], digits=4, zero_division=0)
-    print('classification on test set:')
+    print('Classification on test set:')
     print(report_text)
     with open(os.path.join(save_dir, 'classification_report_test.txt'), 'w') as f:
         f.write(report_text)
@@ -214,7 +205,7 @@ def evaluate_on_test(model, test_loader, checkpoint_path, device, save_dir):
 def main():
     parser = argparse.ArgumentParser(description="Train ConvNeXt on AD/NC dataset")
     parser.add_argument('--batch_size', type=int, default=32)
-    parser.add_argument('--epochs', type=int, default=150)
+    parser.add_argument('--epochs', type=int, default=120)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--datapath', type=str, default=r"D:\MachineLearningData\AD_NC")
@@ -231,9 +222,9 @@ def main():
     print(f"Loading data from {args.datapath}...")
     loader = CustomDataLoader(datapath=args.datapath, batch_size=args.batch_size, num_workers=8, pin_memory=True)
     loader.load_data()
-    train_loader, val_loader, test_loader = loader.get_loaders()
+    train_loader, test_loader = loader.get_loaders()
     meta = loader.get_meta()
-    print(f"Data loaded: train={len(train_loader.dataset)}, val={len(val_loader.dataset)}, test={len(test_loader.dataset)}")
+    print(f"Data loaded: train={len(train_loader.dataset)}, test={len(test_loader.dataset)}")
     print(f"Dataset info: {meta}")
 
     print(f"Initializing ConvNeXt model ({args.model_name})...")
@@ -241,7 +232,7 @@ def main():
     model_report(model)
 
     print("Starting training...")
-    model, history, best_path = train_amp(model, train_loader, val_loader,
+    model, history, best_path = train_amp(model, train_loader,
                                           model_name=args.model_name,
                                           device=device,
                                           epochs=args.epochs,

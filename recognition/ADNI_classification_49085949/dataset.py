@@ -1,6 +1,6 @@
 import os
 import torch
-from torch.utils.data import Dataset, DataLoader as TorchDataLoader, random_split
+from torch.utils.data import Dataset, DataLoader as TorchDataLoader, random_split, ConcatDataset, Subset
 from torchvision import transforms
 import glob
 from PIL import Image
@@ -11,40 +11,42 @@ class CustomImageDataset(Dataset):
     """Load images from folders automatically and assign labels"""
 
     def __init__(self, folder_paths, labels, transform=None):
-        """
-        Args:
-            folder_paths (list[str]): List of folder paths for each class
-            labels (list[int]): Corresponding class labels
-            transform (callable, optional): Transformations to apply to images
-        """
-        self.img_paths = []  # list of all image file paths
-        self.labels = []     # list of labels corresponding to images
+        self.img_paths = []
+        self.labels = []
         self.transform = transform
 
-        # Iterate through each class folder and gather image paths
         for folder, label in zip(folder_paths, labels):
-            # Grab all files in the folder
             files = glob.glob(os.path.join(folder, '*.*'))
-            # Filter for supported image formats
             files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
             self.img_paths.extend(files)
-            self.labels.extend([label] * len(files))  # assign label to all images
+            self.labels.extend([label] * len(files))
 
     def __len__(self):
-        """Return the total number of images"""
         return len(self.img_paths)
 
     def __getitem__(self, idx):
-        """Return image and label at index `idx`"""
-        img = Image.open(self.img_paths[idx]).convert('L')  # convert to grayscale
-        if self.transform:
-            img = self.transform(img)  # apply transformations if provided
+        img = Image.open(self.img_paths[idx]).convert('L')
         label = self.labels[idx]
+        if self.transform:
+            img = self.transform(img)
         return img, label
 
 
+# Subset wrapper with transform
+class SubsetWithTransform(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+    def __len__(self):
+        return len(self.subset)
+    def __getitem__(self, idx):
+        img, label = self.subset[idx]
+        if self.transform:
+            img = self.transform(img)
+        return img, label
 
-class DataLoader: # DataLoader class for ADNI dataset
+
+class DataLoader:
     """
     Optimized DataLoader for AD/NC dataset.
     Features:
@@ -59,108 +61,129 @@ class DataLoader: # DataLoader class for ADNI dataset
                  batch_size=64,
                  img_size=None,
                  split_ratio=(0.7, 0.15, 0.15),
-                 seed=42):
+                 seed=42,
+                 num_workers=0,
+                 pin_memory=False):
         self.datapath = datapath
         self.batch_size = batch_size
         self.img_size = img_size
         self.split_ratio = split_ratio
         self.seed = seed
 
-        # PyTorch DataLoader placeholders
         self.train_loader = None
         self.val_loader = None
         self.test_loader = None
 
-        # Dataset statistics
         self.mean = 0.0
         self.std = 0.0
         self.total_images = 0
         self.n_classes = 0
+        self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
-        # Ensure reproducibility
         torch.manual_seed(self.seed)
 
     def load_data(self):
-        """Load dataset, compute mean/std, and create DataLoaders"""
-        classes = ['AD', 'NC']  # define class names
-        class_paths = [os.path.join(self.datapath, 'train', c) for c in classes]
+        classes = ['AD', 'NC']
         label_ids = list(range(len(classes)))
 
-        # Compute dataset mean/std
-        init_dataset = CustomImageDataset(class_paths, label_ids, transform=transforms.ToTensor())
-        loader = TorchDataLoader(init_dataset, batch_size=self.batch_size, shuffle=False)
+        merged_datasets = []
+        for c, label in zip(classes, label_ids):
+            folder_train = os.path.join(self.datapath, 'train', c)
+            folder_test = os.path.join(self.datapath, 'test', c)
+            dataset = CustomImageDataset([folder_train, folder_test], [label, label], transform=None)
+            merged_datasets.append(dataset)
 
-        mean = 0.0
-        std = 0.0
-        total_images = 0
-        for imgs, _ in loader:
-            batch = imgs.view(imgs.size(0), imgs.size(1), -1)  # flatten each image
-            mean += batch.mean(2).sum(0)# sum mean of each batch
-            std += batch.std(2).sum(0)# sum std of each batch
-            total_images += imgs.size(0)
-
-        mean /= total_images
-        std /= total_images
-
-        self.mean = mean.item()
-        self.std = std.item()
-        self.total_images = total_images
+        full_dataset = ConcatDataset(merged_datasets)
+        self.total_images = len(full_dataset)
         self.n_classes = len(classes)
 
-        # Determine image size
         if self.img_size is None:
-            sample_img, _ = next(iter(loader))
-            self.img_size = min(sample_img.shape[-2:])# use smallest dimension
+            sample_img, _ = full_dataset[0]
+            self.img_size = min(sample_img.size)
 
-        # Define transforms
         train_transform = transforms.Compose([
-            transforms.Resize((self.img_size, self.img_size)),# resize
-            transforms.RandomHorizontalFlip(),# horizontal flip
-            transforms.RandomVerticalFlip(p=0.5),# vertical flip
-            transforms.RandomRotation(30),# rotation ±30°
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, 
-                                   saturation=0.2, hue=0.1),# brightness/contrast/saturation/hue jitter
-            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)), # translation
-            transforms.RandomCrop(self.img_size, padding=8, padding_mode='reflect'), # crop with padding
-            transforms.ToTensor(),# convert to tensor
-            transforms.Normalize(mean=self.mean, std=self.std)# normalize
+            transforms.Resize((self.img_size, self.img_size)),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(p=0.5),
+            transforms.RandomRotation(30),
+            transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+            transforms.RandomCrop(self.img_size, padding=8, padding_mode='reflect'),
+            transforms.ToTensor(),
         ])
 
         val_transform = transforms.Compose([
-            transforms.Resize((self.img_size, self.img_size)),# resize
-            transforms.ToTensor(),# convert to tensor
-            transforms.Normalize(mean=self.mean, std=self.std)# normalize
+            transforms.Resize((self.img_size, self.img_size)),
+            transforms.ToTensor(),
         ])
 
-        # Load datasets
-        train_dataset = CustomImageDataset(class_paths, label_ids, transform=train_transform)
-        test_class_paths = [os.path.join(self.datapath, 'test', c) for c in classes]
-        test_dataset = CustomImageDataset(test_class_paths, label_ids, transform=val_transform)
+        loader_for_stats = TorchDataLoader(
+            SubsetWithTransform(full_dataset, transforms.Compose([transforms.Resize((self.img_size,self.img_size)), transforms.ToTensor()])),
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True
+        )
 
-        # Concatenate train and test for splitting
-        full_dataset = train_dataset + test_dataset
+        mean = 0.0
+        std = 0.0
+        for imgs, _ in loader_for_stats:
+            batch = imgs.view(imgs.size(0), imgs.size(1), -1)
+            mean += batch.mean(2).sum(0)
+            std += batch.std(2).sum(0)
+        mean /= len(full_dataset)
+        std /= len(full_dataset)
+        self.mean = mean.item()
+        self.std = std.item()
+
+        train_transform.transforms.append(transforms.Normalize(mean=self.mean, std=self.std))
+        val_transform.transforms.append(transforms.Normalize(mean=self.mean, std=self.std))
+
         total_len = len(full_dataset)
         train_len = int(total_len * self.split_ratio[0])
         val_len = int(total_len * self.split_ratio[1])
         test_len = total_len - train_len - val_len
 
-        # Split dataset
-        train_data, val_data, test_data = random_split(full_dataset, [train_len, val_len, test_len],
-                                                       generator=torch.Generator().manual_seed(self.seed))
+        train_subset, val_subset, test_subset = random_split(
+            full_dataset, [train_len, val_len, test_len],
+            generator=torch.Generator().manual_seed(self.seed)
+        )
 
-        # Ensure val/test uses only normalization (no augmentation)
-        val_data.dataset.transform = val_transform
-        test_data.dataset.transform = val_transform
+        train_data = SubsetWithTransform(train_subset, train_transform)
+        val_data = SubsetWithTransform(val_subset, val_transform)
+        test_data = SubsetWithTransform(test_subset, val_transform)
 
-        # Create PyTorch DataLoaders
-        self.train_loader = TorchDataLoader(train_data, batch_size=self.batch_size, shuffle=True)
-        self.val_loader = TorchDataLoader(val_data, batch_size=self.batch_size, shuffle=False)
-        self.test_loader = TorchDataLoader(test_data, batch_size=self.batch_size, shuffle=False)
+        # ----------------------------
+        # Create PyTorch DataLoaders with multi-threading
+        # ----------------------------
+        self.train_loader = TorchDataLoader(
+            train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True
+        )
+        self.val_loader = TorchDataLoader(
+            val_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True
+        )
+        self.test_loader = TorchDataLoader(
+            test_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            persistent_workers=True
+        )
 
     def transform_val_from_folder(self, folder_path):
-        """Randomly read one image from folder and apply validation transforms"""
-        files = [f for f in os.listdir(folder_path)
-                 if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        files = [f for f in os.listdir(folder_path) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
         if len(files) == 0:
             raise FileNotFoundError(f"No image in {folder_path}")
 
@@ -168,18 +191,16 @@ class DataLoader: # DataLoader class for ADNI dataset
         img = Image.open(img_path).convert('L')
 
         val_transform = transforms.Compose([
-            transforms.Resize((self.img_size, self.img_size)),  # resize
-            transforms.ToTensor(),                              # convert to tensor
-            transforms.Normalize(mean=self.mean, std=self.std)  # normalize
+            transforms.Resize((self.img_size, self.img_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=self.mean, std=self.std)
         ])
-        return val_transform(img).unsqueeze(0)  # add batch dimension
+        return val_transform(img).unsqueeze(0)
 
-    # Getters for DataLoaders and metadata
     def get_loaders(self):
         return self.train_loader, self.val_loader, self.test_loader
 
     def get_meta(self):
-        """Return dataset meta information"""
         return {
             'total_images': self.total_images,
             'mean': self.mean,
@@ -188,15 +209,3 @@ class DataLoader: # DataLoader class for ADNI dataset
             'channels': 1,
             'n_classes': self.n_classes
         }
-
-
-
-# Example usage
-# loader = DataLoader(datapath=r"D:\MachineLearningData\AD_NC", batch_size=64, img_size=224)
-# loader.load_data()
-
-# train_loader, val_loader, test_loader = loader.get_loaders()
-# print(loader.get_meta())
-
-# img_tensor = loader.transform_val_from_folder(r"D:\MachineLearningData\AD_NC\test\AD")
-# print(img_tensor.shape)

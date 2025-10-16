@@ -131,7 +131,7 @@ def train_amp(model, train_loader, model_name='small-in22k',
     }, best_path)
     print(f"Best model saved at epoch {best_epoch} with Train Acc: {best_train_acc:.4f}")
 
-    # Training 集评估
+    # Training
     model.eval()
     all_preds, all_labels = [], []
     with torch.no_grad():
@@ -142,20 +142,32 @@ def train_amp(model, train_loader, model_name='small-in22k',
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
 
-    report_text = classification_report(all_labels, all_preds, digits=4, zero_division=0)
-    print("Classification report on training set:")
-    print(report_text)
-    with open(os.path.join(results_dir, "classification_report_train.txt"), "w") as f:
-        f.write(report_text)
 
-    cm = confusion_matrix(all_labels, all_preds)
-    plt.figure(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    plt.title("Confusion Matrix (Train)")
-    plt.xlabel("Predicted")
-    plt.ylabel("True")
-    plt.savefig(os.path.join(results_dir, "confusion_matrix/conf_matrix_train.png"))
+    # Plot Train Loss
+    plt.figure(figsize=(8,5))
+    plt.plot(history['train_loss'], label='Train Loss', color='red')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Training Loss')
+    plt.grid(True)
+    plt.legend()
+    loss_path = os.path.join(results_dir, 'plots', f'{model_name}_train_loss.png')
+    plt.savefig(loss_path)
     plt.close()
+    print(f"Training loss curve saved to {loss_path}")
+
+    # Plot Train Accuracy
+    plt.figure(figsize=(8,5))
+    plt.plot(history['train_acc'], label='Train Acc', color='blue')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.title('Training Accuracy')
+    plt.grid(True)
+    plt.legend()
+    acc_path = os.path.join(results_dir, 'plots', f'{model_name}_train_acc.png')
+    plt.savefig(acc_path)
+    plt.close()
+    print(f"Training accuracy curve saved to {acc_path}")
 
     return model, history, best_path
 
@@ -196,7 +208,7 @@ def evaluate_on_test(model, test_loader, checkpoint_path, device, save_dir):
     plt.xlabel('Predicted')
     plt.ylabel('True')
     plt.title('Confusion Matrix (Test)')
-    plt.savefig(os.path.join(save_dir, 'confusion_matrix_test.png'))
+    plt.savefig(os.path.join(save_dir, 'confusion_matrix/confusion_matrix_test.png'))
     plt.close()
 
 # ----------------------------

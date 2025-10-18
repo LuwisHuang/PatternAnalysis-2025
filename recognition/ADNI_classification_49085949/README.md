@@ -268,7 +268,7 @@ weighted avg     0.7400    0.7309    0.7281      4500
 
 #### Analysis
 
-- **Training Accuracy:** Steadily increased to ~95%, demonstrating model's learning capacity
+- **Training Accuracy:** Steadily increased to about 90%, demonstrating model's learning capacity
 - **Validation Accuracy:** Fluctuated initially, then stabilized around 73% after epoch 40
 - **Training Loss:** Consistently decreased throughout training
 - **Validation Loss:** High volatility in early epochs, then plateaued around 0.68
@@ -353,40 +353,14 @@ Using the trained model in `auto` mode, I randomly selected 6 test images for in
 
 *Figure 8: Summary table comparing predictions vs ground truth with confidence scores*
 
-The confidence scores (softmax probabilities) provide interpretable decision-making insights, which is crucial for clinical deployment.
+The confidence scores (softmax probabilities) provide interpretable decision-making insights, which is crucial for clinical deployment. From the results above, 4 out of the 6 images were correctly classified. The two misclassified images were normal brains incorrectly diagnosed as AD. This type of error is somewhat less severe compared to misclassifying AD cases as normal.
 
 ---
 
 ## Future Improvements
 
-### 1. Model Architecture Enhancements
+Future improvements could explore larger ConvNeXt models or ensemble approaches, incorporating attention mechanisms to focus on key brain regions, and even try 3D ConvNeXt for volumetric MRI analysis. More advanced models, such as Med Mamba from the recent Vision Mamba framework, can also be considered, as they leverage self-attention and perform excellently on medical imaging tasks. For data and training, increasing the dataset size and applying domain-specific augmentations (e.g., elastic deformation, intensity adjustment), regularization, or transfer learning can further improve performance. Evaluation strategies like cross-validation can be used to enhance the model’s generalization ability.
 
-- Experiment with larger ConvNeXt variants (Base, Large) if computational resources permit
-- Explore ensemble methods combining multiple model predictions
-- Investigate attention mechanisms to identify discriminative brain regions
-- Implement 3D ConvNeXt for volumetric MRI analysis
-
-### 2. Data and Training Strategies
-
-- Collect more diverse training data to improve generalization
-- Apply domain-specific augmentations (e.g., elastic deformation, intensity shifting)
-- Implement advanced techniques:
-  - MixUp or CutMix for better regularization
-  - Self-supervised pre-training on unlabeled medical images
-  - Transfer learning from larger medical imaging datasets (e.g., UK Biobank)
-
-### 3. Evaluation and Clinical Relevance
-
-- Conduct cross-validation for more robust performance estimation
-- Analyze model decisions using gradient-based visualization (Grad-CAM)
-- Evaluate on external validation datasets to assess generalizability
-- Investigate multi-class classification (e.g., including Mild Cognitive Impairment)
-
-### 4. Deployment Optimization
-
-- Model quantization (INT8) for edge device deployment
-- Knowledge distillation to reduce model size
-- ONNX export for cross-platform compatibility
 
 ---
 

@@ -181,7 +181,7 @@ python train.py \
 
 - `--batch_size`: Batch size for training (default: 32)
 - `--epochs`: Maximum training epochs (default: 100)
-- `--lr`: Initial learning rate (default: 1e-3)
+- `--lr`: Initial learning rate (default: 1e-4)
 - `--weight_decay`: L2 regularization coefficient (default: 0.05)
 - `--early_stopping`: Enable early stopping mechanism
 - `--patience`: Patience epochs for early stopping (default: 15)
@@ -319,12 +319,7 @@ weighted avg     0.7312    0.7193    0.7155      4500
 - **Generalization Gap:** Training accuracy ~80% vs validation ~73% indicates the model reached its generalization limit early
 
 **Key Insights:**
-1. Extended training (>30 epochs) provides minimal accuracy gains, suggesting the model has reached a performance plateau on this dataset
-2. Early stopping significantly reduces computational cost while maintaining competitive performance
-3. The persistent train-val gap across both experiments highlights the need for:
-   - Larger and more diverse training data
-   - More sophisticated domain-specific augmentation strategies
-   - Potential ensemble methods or architecture modifications
+Extended training beyond 30 epochs yields only minimal accuracy improvements, indicating that the model has likely reached a performance plateau on this dataset. Early stopping proves effective in reducing computational costs while still maintaining competitive performance. The consistent gap between training and validation results across experiments suggests that further improvements may require larger and more diverse datasets, more sophisticated domain-specific augmentations, or potentially ensemble methods and architectural modifications.
 
 ---
 

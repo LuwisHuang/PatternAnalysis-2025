@@ -42,7 +42,7 @@ Global Average Pooling
 LayerNorm + Linear Head → 2 classes (AD/CN)
 ```
 
-![model structure](resources\model_arc_.png)
+![model structure](resources\model_arc.png)
 *figure1: structure of convnext compared with Resnet and swin transformer[1]
 
 

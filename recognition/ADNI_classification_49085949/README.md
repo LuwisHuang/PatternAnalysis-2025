@@ -33,7 +33,7 @@ Stage 1: 3 ConvNeXt Blocks (96 channels)
     ↓ Downsample (2×2 conv, stride=2)
 Stage 2: 3 ConvNeXt Blocks (192 channels)
     ↓ Downsample
-Stage 3: 9(small)\27(base or large) ConvNeXt Blocks (384 channels)
+Stage 3: 9 ConvNeXt Blocks (384 channels)
     ↓ Downsample
 Stage 4: 3 ConvNeXt Blocks (768 channels)
     ↓
@@ -55,7 +55,7 @@ For this project, I selected **ConvNeXt-Small** considering both performance and
 - **Total Parameters:** 49.45M
 - **Trainable Parameters:** 49.45M
 - **FLOPs:** 8.72 GMac
-- **Reported Top-1 Accuracy (ImageNet-22K):** 84.6%
+- **Reported Top-1 Accuracy (ImageNet-22K):** 84.6% [2]
 
 ConvNeXt-Small offers an optimal balance between accuracy and inference speed, making it suitable for deployment in resource-constrained medical imaging environments. My implementation (in `utils.py`) provides interfaces for other ConvNeXt variants (Tiny, Base, Large, XLarge) for future comparison and experimentation.
 
@@ -273,7 +273,7 @@ weighted avg     0.7400    0.7309    0.7281      4500
 - **Training Loss:** Consistently decreased throughout training
 - **Validation Loss:** High volatility in early epochs, then plateaued around 0.68
 
-**Key Observations:**
+**Observations:**
 1. No significant validation loss increase in later epochs indicates that regularization techniques (weight decay, label smoothing, data augmentation) effectively prevented severe overfitting
 2. The ~22% gap between training and validation accuracy suggests moderate overfitting, which is typical for medical imaging tasks with limited data
 3. **Test Accuracy: 73.09%** with balanced performance across both classes
@@ -314,9 +314,7 @@ weighted avg     0.7312    0.7193    0.7155      4500
 
 #### Analysis
 
-- **Training Efficiency:** Achieved 71.93% test accuracy in only 24 epochs (4× faster)
-- **Performance Trade-off:** Marginal 1.16% accuracy drop compared to 100-epoch training
-- **Generalization Gap:** Training accuracy ~80% vs validation ~73% indicates the model reached its generalization limit early
+The model achieved 71.93% test accuracy in just 24 epochs, training about four times faster than the 100-epoch setup, with only a 1.16% accuracy drop, demonstrating strong training efficiency. However, the consistent train-validation gap (around 80% vs 73%) suggests that the model had already reached its generalization limit early, and further training brought limited improvement.
 
 **Key Insights:**
 Extended training beyond 30 epochs yields only minimal accuracy improvements, indicating that the model has likely reached a performance plateau on this dataset. Early stopping proves effective in reducing computational costs while still maintaining competitive performance. The consistent gap between training and validation results across experiments suggests that further improvements may require larger and more diverse datasets, more sophisticated domain-specific augmentations, or potentially ensemble methods and architectural modifications.
@@ -354,11 +352,15 @@ The confidence scores (softmax probabilities) provide interpretable decision-mak
 
 ## Future Improvements
 
-Future improvements could explore larger ConvNeXt models or ensemble approaches, incorporating attention mechanisms to focus on key brain regions, and even try 3D ConvNeXt for volumetric MRI analysis. More advanced models, such as Med Mamba from the recent Vision Mamba framework, can also be considered, as they leverage self-attention and perform excellently on medical imaging tasks. For data and training, increasing the dataset size and applying domain-specific augmentations (e.g., elastic deformation, intensity adjustment), regularization, or transfer learning can further improve performance. Evaluation strategies like cross-validation can be used to enhance the model’s generalization ability.
-
+Future improvements could explore larger ConvNeXt models or ensemble approaches, incorporating attention mechanisms to focus on key brain regions, and even try 3D ConvNeXt for volumetric MRI analysis. More advanced models, such as Med Mamba from the recent Vision Mamba framework, can also be considered. For data and training, increasing the dataset size and applying domain-specific augmentations (e.g., elastic deformation, intensity adjustment), regularization, or transfer learning can further improve performance. Evaluation strategies like cross-validation can be used to enhance the model’s generalization ability.
 
 ---
 
 ## References
 
-[1] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). *A ConvNet for the 2020s.* arXiv preprint arXiv:2201.03545.
+[1] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). *A ConvNet for the 2020s.* arXiv preprint arXiv:2201.03545.Accessed: Oct.18, 2025. [online] Available:https://arxiv.org/abs/2201.03545
+[2] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). A ConvNet for the 2020s (Code release: Facebook Research ConvNeXt) [GitHub repository]. GitHub. https://github.com/facebookresearch/ConvNeXt
+---
+
+**AI Usage Statement**:
+In this project, AI(ChatGPT 5.0, oct. 2025 and claude sonnet 4.5, oct. 2025) was used to assist in code optimization, structural refinement, and comment organization. It also helped improve the fluency of certain descriptions in the README. However, the core implementation of the code and the content of the README were entirely completed by me.

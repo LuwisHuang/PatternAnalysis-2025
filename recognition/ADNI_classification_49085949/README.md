@@ -42,7 +42,7 @@ Global Average Pooling
 LayerNorm + Linear Head → 2 classes (AD/CN)
 ```
 
-![model structure](recognition\ADNI_classification_49085949\resources\model_arc_.png)
+![model structure](resources\model_arc_.png)
 *figure1: structure of convnext compared with Resnet and swin transformer[1]
 
 
@@ -245,15 +245,15 @@ I conducted two experimental scenarios to evaluate the impact of early stopping 
 
 #### Training Progress
 
-![Accuracy Curve](recognition/ADNI_classification_49085949/result_record/normal/plots/small-in22k_acc_curve.png)
+![Accuracy Curve](result_record/normal/plots/small-in22k_acc_curve.png)
 *Figure 2: Training and validation accuracy over 100 epochs*
 
-![Loss Curve](recognition/ADNI_classification_49085949/result_record/normal/plots/small-in22k_loss_curve.png)
+![Loss Curve](result_record/normal/plots/small-in22k_loss_curve.png)
 *Figure 3: Training and validation loss over 100 epochs*
 
 #### Test Results
 
-![Confusion Matrix](recognition/ADNI_classification_49085949/result_record/normal/confusion_matrix/confusion_matrix_test.png)
+![Confusion Matrix](result_record/normal/confusion_matrix/confusion_matrix_test.png)
 *Figure 4: Confusion matrix on test set*
 
 #### Classification Report
@@ -288,15 +288,15 @@ Training terminated at **Epoch 24** due to no improvement in validation accuracy
 
 #### Training Progress
 
-![Accuracy Curve - Early Stop](recognition/ADNI_classification_49085949/result_record/earlystopping/plots/small-in22k_acc_curve.png)
+![Accuracy Curve - Early Stop](result_record/earlystopping/plots/small-in22k_acc_curve.png)
 *Figure 5: Training halted early at epoch 24*
 
-![Loss Curve - Early Stop](recognition/ADNI_classification_49085949/result_record/earlystopping/plots/small-in22k_loss_curve.png)
+![Loss Curve - Early Stop](result_record/earlystopping/plots/small-in22k_loss_curve.png)
 *Figure 6: Loss curves showing early convergence*
 
 #### Test Results
 
-![Confusion Matrix - Early Stop](recognition/ADNI_classification_49085949/result_record/earlystopping/confusion_matrix/confusion_matrix_test.png)
+![Confusion Matrix - Early Stop](result_record/earlystopping/confusion_matrix/confusion_matrix_test.png)
 *Figure 7: Test confusion matrix (early stopped model)*
 
 #### Classification Report
@@ -330,16 +330,19 @@ weighted avg     0.7312    0.7193    0.7155      4500
 
 Using the trained model in `auto` mode, I randomly selected 6 test images for inference:
 
-![Prediction Example 1](recognition/ADNI_classification_49085949/result_record/predict/1.png)
-![Prediction Example 2](recognition/ADNI_classification_49085949/result_record/predict/2.png)
-![Prediction Example 3](recognition/ADNI_classification_49085949/result_record/predict/3.png)
-![Prediction Example 4](recognition/ADNI_classification_49085949/result_record/predict/4.png)
-![Prediction Example 5](recognition/ADNI_classification_49085949/result_record/predict/5.png)
-![Prediction Example 6](recognition/ADNI_classification_49085949/result_record/predict/6.png)
+<p align="left">
+  <img src="result_record/predict/1.png" width="150" />
+  <img src="result_record/predict/2.png" width="150" />
+  <img src="result_record/predict/3.png" width="150" />
+  <img src="result_record/predict/4.png" width="150" />
+  <img src="result_record/predict/5.png" width="150" />
+  <img src="result_record/predict/6.png" width="150" />
+</p>
+
 
 #### Prediction Summary
 
-![Prediction Record](recognition/ADNI_classification_49085949/result_record/predict/record.png)
+![Prediction Record](result_record/predict/record.png)
 *Figure 8: Summary table comparing predictions vs ground truth with confidence scores*
 
 The confidence scores (softmax probabilities) provide interpretable decision-making insights, which is crucial for clinical deployment.

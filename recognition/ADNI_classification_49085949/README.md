@@ -42,7 +42,8 @@ Global Average Pooling
 LayerNorm + Linear Head → 2 classes (AD/CN)
 ```
 
-![model structure](resources\model_arc.png)
+![model structure](resources/model_arc.png)
+
 *figure1: structure of convnext compared with Resnet and swin transformer[1]
 
 
@@ -246,14 +247,17 @@ I conducted two experimental scenarios to evaluate the impact of early stopping 
 #### Training Progress
 
 ![Accuracy Curve](result_record/normal/plots/small-in22k_acc_curve.png)
+
 *Figure 2: Training and validation accuracy over 100 epochs*
 
 ![Loss Curve](result_record/normal/plots/small-in22k_loss_curve.png)
+
 *Figure 3: Training and validation loss over 100 epochs*
 
 #### Test Results
 
 ![Confusion Matrix](result_record/normal/confusion_matrix/confusion_matrix_test.png)
+
 *Figure 4: Confusion matrix on test set*
 
 #### Classification Report
@@ -289,14 +293,17 @@ Training terminated at **Epoch 24** due to no improvement in validation accuracy
 #### Training Progress
 
 ![Accuracy Curve - Early Stop](result_record/earlystopping/plots/small-in22k_acc_curve.png)
+
 *Figure 5: Training halted early at epoch 24*
 
 ![Loss Curve - Early Stop](result_record/earlystopping/plots/small-in22k_loss_curve.png)
+
 *Figure 6: Loss curves showing early convergence*
 
 #### Test Results
 
 ![Confusion Matrix - Early Stop](result_record/earlystopping/confusion_matrix/confusion_matrix_test.png)
+
 *Figure 7: Test confusion matrix (early stopped model)*
 
 #### Classification Report
@@ -348,6 +355,7 @@ Using the trained model in `auto` mode, I randomly selected 6 test images for in
 #### Prediction Summary
 
 ![Prediction Record](result_record/predict/record.png)
+
 *Figure 8: Summary table comparing predictions vs ground truth with confidence scores*
 
 The confidence scores (softmax probabilities) provide interpretable decision-making insights, which is crucial for clinical deployment.

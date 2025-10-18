@@ -360,7 +360,7 @@ Future improvements could explore larger ConvNeXt models or ensemble approaches,
 
 [1] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). *A ConvNet for the 2020s.* arXiv preprint arXiv:2201.03545.Accessed: Oct.18, 2025. [online] Available:https://arxiv.org/abs/2201.03545
 [2] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). A ConvNet for the 2020s (Code release: Facebook Research ConvNeXt) [GitHub repository]. GitHub. https://github.com/facebookresearch/ConvNeXt
----
 
+---
 **AI Usage Statement**:
 In this project, AI(ChatGPT 5.0, oct. 2025 and claude sonnet 4.5, oct. 2025) was used to assist in code optimization, structural refinement, and comment organization. It also helped improve the fluency of certain descriptions in the README. However, the core implementation of the code and the content of the README were entirely completed by me.

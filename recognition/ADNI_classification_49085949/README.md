@@ -274,10 +274,9 @@ weighted avg     0.7400    0.7309    0.7281      4500
 - **Validation Loss:** High volatility in early epochs, then plateaued around 0.68
 
 **Observations:**
-1. No significant validation loss increase in later epochs indicates that regularization techniques (weight decay, label smoothing, data augmentation) effectively prevented severe overfitting
-2. The ~22% gap between training and validation accuracy suggests moderate overfitting, which is typical for medical imaging tasks with limited data
-3. **Test Accuracy: 73.09%** with balanced performance across both classes
-4. Higher recall for AD class (83.01%) vs CN class (63.08%) - model is more sensitive to detecting Alzheimer's cases, which is clinically desirable
+The training results show that validation loss remained stable across later epochs, indicating that regularization techniques such as weight decay, label smoothing, and data augmentation effectively prevented severe overfitting. 
+
+However, the approximately 22% gap between training and validation accuracy suggests moderate overfitting, which is common in medical imaging tasks with limited data. The model achieved a test accuracy of 73.09%, demonstrating balanced performance across both classes. Notably, it exhibited higher recall for the AD class (83.01%) than for the CN class (63.08%), meaning the model is more sensitive to identifying Alzheimer’s cases.
 
 ---
 
@@ -359,6 +358,7 @@ Future improvements could explore larger ConvNeXt models or ensemble approaches,
 ## References
 
 [1] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). *A ConvNet for the 2020s.* arXiv preprint arXiv:2201.03545.Accessed: Oct.18, 2025. [online] Available:https://arxiv.org/abs/2201.03545
+
 [2] Liu, Z., Mao, H., Wu, C.-Y., Feichtenhofer, C., Darrell, T., & Xie, S. (2022). A ConvNet for the 2020s (Code release: Facebook Research ConvNeXt) [GitHub repository]. GitHub. https://github.com/facebookresearch/ConvNeXt
 
 ---

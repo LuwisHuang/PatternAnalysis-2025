@@ -330,14 +330,19 @@ weighted avg     0.7312    0.7193    0.7155      4500
 
 Using the trained model in `auto` mode, I randomly selected 6 test images for inference:
 
-<p align="left">
-  <img src="result_record/predict/1.png" width="150" />
-  <img src="result_record/predict/2.png" width="150" />
-  <img src="result_record/predict/3.png" width="150" />
-  <img src="result_record/predict/4.png" width="150" />
-  <img src="result_record/predict/5.png" width="150" />
-  <img src="result_record/predict/6.png" width="150" />
-</p>
+<table>
+  <tr>
+    <td><img src="result_record/predict/1.png" width="250" /></td>
+    <td><img src="result_record/predict/2.png" width="250" /></td>
+    <td><img src="result_record/predict/3.png" width="250" /></td>
+  </tr>
+  <tr>
+    <td><img src="result_record/predict/4.png" width="250" /></td>
+    <td><img src="result_record/predict/5.png" width="250" /></td>
+    <td><img src="result_record/predict/6.png" width="250" /></td>
+  </tr>
+</table>
+
 
 
 #### Prediction Summary

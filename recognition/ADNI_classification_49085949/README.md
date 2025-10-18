@@ -126,20 +126,15 @@ Data augmentation on the training set can significantly improve the model’s ge
 
 **Training Set Augmentation:**
 - Resize to 224×224 (ConvNeXt input requirement)
-- RandomResizedCrop (scale: 0.75-1.0, ratio: 0.9-1.1)
-- RandomRotation (±20°)
-- RandomAffine (translate: ±15%, scale: 0.85-1.15)
-- RandomPerspective (distortion: 0.2, p=0.5)
 - RandomHorizontalFlip (p=0.5)
-- ColorJitter (brightness: ±20%, contrast: ±20%)
-- ToTensor + Normalization (mean=0.1156, std=0.2229)
-- RandomErasing (p=0.3, scale: 0.02-0.15)
+- RandomRotation (±10°)
+- RandomAffine (translate: ±5%, scale: 0.95-1.05)
+- ColorJitter (brightness: ±10%, contrast: ±10%)
+- ToTensor + Normalization (mean/std computed from training set)
 
 **Validation/Test Set:**
 - Resize to 224×224
 - ToTensor + Normalization (same parameters)
-
-Initially, I applied random cropping and vertical flipping as part of the augmentation process. However, further testing revealed that these operations could be counterproductive—random cropping might remove crucial brain regions, and vertical flipping could disrupt the biologically meaningful “top-bottom” orientation. To balance diversity and structural integrity, I ultimately retained only horizontal flipping, which provides effective augmentation without compromising anatomical consistency.
 
 ---
 

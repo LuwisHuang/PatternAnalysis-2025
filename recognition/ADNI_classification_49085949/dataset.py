@@ -149,21 +149,17 @@ class DataLoader:
         self.mean = (mean / n_samples).item()
         self.std = (std / n_samples).item()
 
-        # ----------------------------
-        # Transforms - 🔧 修改2: 优化数据增强策略
-        # ----------------------------
+
         self.train_transform = transforms.Compose([
             transforms.Resize((self.img_size, self.img_size)),
-            transforms.RandomHorizontalFlip(p=0.5),  # 保留水平翻转
-            # ❌ 移除垂直翻转 - 大脑上下结构有解剖学意义
-            transforms.RandomRotation(10),  # 🔧 从30度减小到10度
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomRotation(10),
             transforms.RandomAffine(
                 degrees=0, 
-                translate=(0.05, 0.05),  # 🔧 从0.1减小到0.05
-                scale=(0.95, 1.05)       # 🔧 新增: 轻微缩放
+                translate=(0.05, 0.05),
+                scale=(0.95, 1.05) 
             ),
-            # ❌ 移除RandomCrop - 可能裁掉关键脑区
-            transforms.ColorJitter(brightness=0.1, contrast=0.1),  # 🔧 新增: 轻微亮度对比度变化
+            transforms.ColorJitter(brightness=0.1, contrast=0.1),
             transforms.ToTensor(),
             transforms.Normalize(mean=self.mean, std=self.std)
         ])
